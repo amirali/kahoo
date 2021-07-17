@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 
@@ -11,83 +12,89 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-    Use: "",
+	Use: "",
 }
 
 var readCmd = &cobra.Command{
-    Use: "read [port] [baud]",
-    Short: "Read data from serial",
-    Long: "Read data form serial on specific port and baud",
-    Run: func(cmd *cobra.Command, args []string) {
-        port := args[0]
-        baud, err := strconv.Atoi(args[1])
-        if err != nil {
-            panic(err)
-        }
+	Use:   "read [port] [baud]",
+	Short: "Read data from serial",
+	Long:  "Read data form serial on specific port and baud",
+	Run: func(cmd *cobra.Command, args []string) {
+		port := args[0]
+		baud, err := strconv.Atoi(args[1])
+		if err != nil {
+			panic(err)
+		}
 
-        config := &serial.Config{
-            Name: port,
-            Baud: baud,
-        }
+		config := &serial.Config{
+			Name: port,
+			Baud: baud,
+		}
 
-        serialConnection, err := serial.OpenPort(config)
-        if err != nil {
-            panic(err)
-        }
+		serialConnection, err := serial.OpenPort(config)
+		if err != nil {
+			panic(err)
+		}
 
-        buffer := make([]byte, 1024)
-        for {
-            size, err := serialConnection.Read(buffer)
-            if err != nil {
-                panic(err)
-            }
+		buffer := make([]byte, 1024)
+		for {
+			size, err := serialConnection.Read(buffer)
+			if err != nil {
+				panic(err)
+			}
 
-            fmt.Printf("%q", buffer[:size])
-        }
-    },
+			fmt.Printf("%q", buffer[:size])
+		}
+	},
 }
 
 var writeCmd = &cobra.Command{
-    Use: "write [port] [baud]",
-    Short: "Write bytes on serial",
-    Long: "",
-    Run: func(cmd *cobra.Command, args []string) {
-        reader := bufio.NewReader(os.Stdin)
-        line, err := reader.ReadString('\n')
-        if err != nil {
-            panic(err)
-        }
+	Use:   "write [port] [baud]",
+	Short: "Write bytes on serial",
+	Long:  "",
+	Run: func(cmd *cobra.Command, args []string) {
+		reader := bufio.NewReader(os.Stdin)
 
-        bytes := []byte(line)
+		var message string
+		for {
+			line, err := reader.ReadString('\n')
+			if err == io.EOF {
+				return
+			}
 
-        port := args[0]
-        baud, err := strconv.Atoi(args[1])
-        if err != nil {
-            panic(err)
-        }
+			message = message + line + "\r\n"
+		}
 
-        config := &serial.Config{
-            Name: port,
-            Baud: baud,
-        }
+		bytes := []byte(message)
 
-        serialConnection, err := serial.OpenPort(config)
-        if err != nil {
-            panic(err)
-        }
+		port := args[0]
+		baud, err := strconv.Atoi(args[1])
+		if err != nil {
+			panic(err)
+		}
 
-        size, err := serialConnection.Write(bytes)
-        if err != nil {
-            panic(err)
-        }
-        fmt.Printf("%d bytes were written", size)
-    },
+		config := &serial.Config{
+			Name: port,
+			Baud: baud,
+		}
+
+		serialConnection, err := serial.OpenPort(config)
+		if err != nil {
+			panic(err)
+		}
+
+		size, err := serialConnection.Write(bytes)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("%d bytes were written", size)
+	},
 }
 
 func main() {
-    rootCmd.AddCommand(readCmd, writeCmd)
-    err := rootCmd.Execute()
-    if err != nil {
-        panic(err)
-    }
+	rootCmd.AddCommand(readCmd, writeCmd)
+	err := rootCmd.Execute()
+	if err != nil {
+		panic(err)
+	}
 }
